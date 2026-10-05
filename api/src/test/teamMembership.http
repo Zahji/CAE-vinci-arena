@@ -1,0 +1,150 @@
+## TeamMembershipController tests — skip SETUP if teams.http was already run
+## adminToken=admin | managerToken=Lynx (no team after setup) | memberWithoutATeamToken=manager of Team Test
+## memberWithoutATeam2=user without team | memberWithATeamToken=Rogue (member TEAM_ALPHA)
+
+## SETUP
+### Create Team Test
+POST {{baseUrl}}/teams
+Content-Type: application/json
+Authorization: {{memberWithoutATeamToken}}
+
+{"name": "Team Test"}
+
+### Make Rogue co-manager so Lynx can leave TEAM_ALPHA
+PATCH {{baseUrl}}/teams/1/second-manager/2
+Authorization: {{managerToken}}
+
+### Lynx leaves TEAM_ALPHA
+PATCH {{baseUrl}}/teams/1/leave
+Authorization: {{managerToken}}
+
+## Tests for all TeamMembershipController endpoints
+
+## POST /teams/memberships/{teamId}/membership — Join a team
+
+### [OK 201] Join — memberWithoutATeam2 sends a request to Team Test
+## After this test: memberWithoutATeam2 has a PENDING membership
+POST {{baseUrl}}/teams/memberships/3/membership
+Authorization: {{memberWithoutATeam2}}
+
+### [KO 400] Join — manager tries to join their own team
+POST {{baseUrl}}/teams/memberships/3/membership
+Authorization: {{memberWithoutATeamToken}}
+
+### [KO 400] Join — memberWithoutATeam2 tries to join a second time (request already pending)
+POST {{baseUrl}}/teams/memberships/3/membership
+Authorization: {{memberWithoutATeam2}}
+
+### [KO 403] Join — unauthenticated visitor
+POST {{baseUrl}}/teams/memberships/3/membership
+
+### [KO 404] Join — non-existent team
+POST {{baseUrl}}/teams/memberships/999999/membership
+Authorization: {{managerToken}}
+
+## GET /teams/memberships/me — Current user membership
+
+### [KO 401] My membership — non authentifié
+GET {{baseUrl}}/teams/memberships/me
+
+### [OK 200] My membership — memberWithoutATeam2 has a PENDING request
+GET {{baseUrl}}/teams/memberships/me
+Authorization: {{memberWithoutATeam2}}
+
+### [OK 200] My membership — Lynx has no request and no team
+GET {{baseUrl}}/teams/memberships/me
+Authorization: {{managerToken}}
+
+## GET /teams/memberships/{teamId}/members — Team members
+
+### [OK 200] Members of Team Test — unauthenticated visitor (emails hidden)
+GET {{baseUrl}}/teams/memberships/3/members
+Accept: application/json
+
+### [OK 200] Members of Team Test — memberWithoutATeam2 logged in but not manager (emails hidden)
+GET {{baseUrl}}/teams/memberships/3/members
+Accept: application/json
+Authorization: {{memberWithoutATeam2}}
+
+### [OK 200] Members of Team Test — manager (emails visible)
+GET {{baseUrl}}/teams/memberships/3/members
+Accept: application/json
+Authorization: {{memberWithoutATeamToken}}
+
+### [OK 200] Members of Team Test — admin (emails visible)
+GET {{baseUrl}}/teams/memberships/3/members
+Accept: application/json
+Authorization: {{adminToken}}
+
+### [KO 404] Members — non-existent team
+GET {{baseUrl}}/teams/memberships/999999/members
+Accept: application/json
+
+## GET /teams/memberships/{teamId}/requests — Pending requests
+
+### [OK 200] Pending requests — manager sees memberWithoutATeam2's request
+GET {{baseUrl}}/teams/memberships/3/requests
+Authorization: {{memberWithoutATeamToken}}
+
+### [KO 403] Pending requests — unauthenticated
+GET {{baseUrl}}/teams/memberships/3/requests
+
+### [KO 403] Pending requests — simple member (not manager)
+GET {{baseUrl}}/teams/memberships/3/requests
+Authorization: {{memberWithoutATeam2}}
+
+### [KO 404] Pending requests — non-existent team
+GET {{baseUrl}}/teams/memberships/999999/requests
+Authorization: {{memberWithoutATeamToken}}
+
+## PATCH /teams/memberships/{membershipId}/accept — Accept a request
+
+### [KO 403] Accept — non-manager tries to accept memberWithoutATeam2's request
+PATCH {{baseUrl}}/teams/memberships/4/accept
+Authorization: {{memberWithoutATeam2}}
+
+### [KO 404] Accept — non-existent membership
+PATCH {{baseUrl}}/teams/memberships/999999/accept
+Authorization: {{memberWithoutATeamToken}}
+
+### [OK 200] Accept — manager accepts memberWithoutATeam2's request
+## After this test: memberWithoutATeam2 is ACCEPTED in Team Test
+PATCH {{baseUrl}}/teams/memberships/4/accept
+Authorization: {{memberWithoutATeamToken}}
+
+## PATCH /teams/memberships/{membershipId}/refuse — Refuse a request
+
+### [OK 201] Join — managerToken sends a request to Team Test
+## After this test: managerToken has a PENDING membership
+POST {{baseUrl}}/teams/memberships/3/membership
+Authorization: {{managerToken}}
+
+### [KO 403] Refuse — non-manager tries to refuse managerToken's request
+PATCH {{baseUrl}}/teams/memberships/5/refuse?reason=Tag+already+used
+Authorization: {{memberWithoutATeam2}}
+
+### [KO 404] Refuse — membership inexistant
+PATCH {{baseUrl}}/teams/memberships/999999/refuse?reason=test
+Authorization: {{memberWithoutATeamToken}}
+
+### [OK 200] Refuse — manager refuses managerToken's request with a reason
+PATCH {{baseUrl}}/teams/memberships/5/refuse?reason=Tag+already+used
+Authorization: {{memberWithoutATeamToken}}
+
+## DELETE /teams/memberships/{membershipId} — Exclure un membre accepté
+## Prérequis: memberWithoutATeam2 est ACCEPTED dans Team Test (membership id=4)
+### [KO 401] Delete — non authentifié
+DELETE {{baseUrl}}/teams/memberships/4
+
+### [KO 403] Delete — utilisateur non manager (memberWithoutATeam2 essaie de s'exclure lui-même)
+DELETE {{baseUrl}}/teams/memberships/4
+Authorization: {{memberWithoutATeam2}}
+
+### [KO 404] Delete — membership inexistant
+DELETE {{baseUrl}}/teams/memberships/999999
+Authorization: {{memberWithoutATeamToken}}
+
+### [OK 204] Delete — manager exclut memberWithoutATeam2 de Team Test
+DELETE {{baseUrl}}/teams/memberships/4
+Authorization: {{memberWithoutATeamToken}}
+

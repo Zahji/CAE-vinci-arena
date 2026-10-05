@@ -1,0 +1,123 @@
+@baseUrl = http://localhost:3000
+
+### Expected error:403 Login invalide: email mal formaté
+POST {{baseUrl}}/auths/login
+Content-Type: application/json
+
+{
+  "email": "unknown",
+  "password": "Admin1234"
+}
+
+### Expected error:403 Register invalide: email mal formaté (payload complet)
+POST {{baseUrl}}/auths/register
+Content-Type: application/json
+
+{
+  "email": "unknown",
+  "password": "Admin1234",
+  "tag": "Root",
+  "speciality": "Architecte",
+  "profile_picture": "https://api.dicebear.com/7.x/bottts/svg?seed=apple"
+}
+
+### Expected error:400 Register invalide: mot de passe trop faible (pas de majuscule/chiffre)
+POST {{baseUrl}}/auths/register
+Content-Type: application/json
+
+{
+  "email": "weak@password.com",
+  "password": "weakpass",
+  "tag": "Weak",
+  "speciality": "Architecte",
+  "profile_picture": "https://api.dicebear.com/7.x/bottts/svg?seed=apple"
+}
+
+### Expected error:401 Login invalide: utilisateur inconnu
+POST {{baseUrl}}/auths/login
+Content-Type: application/json
+
+{
+  "email": "unknown@unknown.com",
+  "password": "Admin1234"
+}
+
+### Expected code:200 Create default admin (si deja créé, le test suivant validera 409)
+POST {{baseUrl}}/auths/register
+Content-Type: application/json
+
+{
+  "email": "admin@admin.com",
+  "password": "Admin1234",
+  "tag": "Root",
+  "speciality": "Architecte",
+  "profile_picture": "https://api.dicebear.com/7.x/bottts/svg?seed=apple"
+}
+
+### Expected error:409 Register invalide: email déjà utilisé
+POST {{baseUrl}}/auths/register
+Content-Type: application/json
+
+{
+  "email": "admin@admin.com",
+  "password": "Admin1234",
+  "tag": "Root2",
+  "speciality": "Architecte",
+  "profile_picture": "https://api.dicebear.com/7.x/bottts/svg?seed=banana"
+}
+
+### Expected code:200 Login default admin
+POST {{baseUrl}}/auths/login
+Content-Type: application/json
+
+{
+  "email": "admin@admin.com",
+  "password": "Admin1234"
+}
+
+### Expected code:200 Create manager user
+POST {{baseUrl}}/auths/register
+Content-Type: application/json
+
+{
+  "email": "manager@manager.com",
+  "password": "Manager1234",
+  "tag": "Manager",
+  "speciality": "Executeur",
+  "profile_picture": "https://api.dicebear.com/7.x/bottts/svg?seed=banana"
+}
+
+### Expected code:200 Login manager user
+POST {{baseUrl}}/auths/login
+Content-Type: application/json
+
+{
+  "email": "manager@manager.com",
+  "password": "Manager1234"
+}
+
+### [KO 400] Register invalide: tag manquant
+POST {{baseUrl}}/auths/register
+Content-Type: application/json
+
+{
+  "email": "notable@missing.com",
+  "password": "Admin1234",
+  "speciality": "Architecte",
+  "profile_picture": "https://api.dicebear.com/7.x/bottts/svg?seed=apple"
+}
+
+### [KO 400] Login invalide: mot de passe absent
+POST {{baseUrl}}/auths/login
+Content-Type: application/json
+
+{
+  "email": "admin@admin.com"
+}
+
+### [KO 401] Refresh sans token
+GET {{baseUrl}}/auths/refresh
+
+### [OK 200] Refresh avec token valide
+GET {{baseUrl}}/auths/refresh
+Authorization: {{token}}

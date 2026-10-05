@@ -1,0 +1,66 @@
+#TEST for the typical tournament for 2 people
+@teamId1 = 5
+@teamIota = 3
+@adminId = 36
+@tournamentId = 1
+@baseUrl = http://localhost:3000
+@matchId = 1
+@t1m1 = 1
+@managerIotaTeam = 37
+
+### Login as admin
+POST {{baseUrl}}/auths/login
+Content-Type: application/json
+
+{
+  "email": "tibo@mail.com",
+  "password": "password"
+}
+
+> {%
+  client.global.set("adminToken", response.body.token);
+%}
+
+### Login as manager1
+POST {{baseUrl}}/auths/login
+Content-Type: application/json
+
+{
+  "email": "tiago.t1.m1@mail.com",
+  "password": "password"
+}
+
+> {%
+  client.global.set("managerToken1", response.body.token);
+%}
+
+### Login as manager2
+POST {{baseUrl}}/auths/login
+Content-Type: application/json
+
+{
+  "email": "lisa@mail.com",
+  "password": "password"
+}
+
+> {%
+  client.global.set("managerToken2", response.body.token);
+%}
+
+###
+POST {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId1}}/selections
+Content-Type: application/json
+Authorization: {{managerToken1}}
+
+{
+  "memberId": {{t1m1}}
+}
+
+###
+POST {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamIota}}/selections
+Content-Type: application/json
+Authorization: {{managerToken2}}
+
+{
+  "memberId": {{managerIotaTeam}}
+}

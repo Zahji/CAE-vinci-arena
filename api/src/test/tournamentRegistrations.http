@@ -1,0 +1,141 @@
+## TournamentRegistrationController tests
+## Tokens: adminToken=Pulse(admin,TEAM_ALPHA) | managerToken=Lynx(manager TEAM_ALPHA)
+## memberWithATeamToken=Rogue(member TEAM_ALPHA, not manager) | memberWithoutATeamToken=user without team
+## memberWithoutATeam2=user without team
+##
+## TEAM_ALPHA initial state: 1 manager (Lynx) + 2 accepted members (Rogue, Pulse) = 3 total
+## Min required: 4 → SETUP must add memberWithoutATeam2 to TEAM_ALPHA before the [OK 201] test
+
+## SETUP — skip if already run
+### [SETUP] memberWithoutATeam2 joins TEAM_ALPHA
+POST {{baseUrl}}/teams/memberships/1/membership
+Authorization: {{memberWithoutATeam2}}
+
+### [SETUP] Lynx accepts the join request (membership id depends on db state — adjust if needed)
+PATCH {{baseUrl}}/teams/memberships/3/accept
+Authorization: {{managerToken}}
+
+### [SETUP] Admin creates a PLANIFIED tournament
+# @name createOpenTournament
+POST {{baseUrl}}/tournaments
+Authorization: {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Spring Cup",
+  "description": "Tournoi ouvert aux inscriptions",
+  "startDate": "2026-06-01",
+  "endDate": "2026-06-03",
+  "startInscriptionDate": "2026-04-01",
+  "endInscriptionDate": "2026-05-31",
+  "maxTeams": 4,
+  "state": "PLANIFIED"
+}
+
+> {%
+client.global.set("openTournamentId", response.body.id);
+%}
+
+### [SETUP] Admin creates a non-open tournament (IN_PREPARATION)
+# @name createClosedTournament
+POST {{baseUrl}}/tournaments
+Authorization: {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Winter Cup",
+  "description": "Tournoi pas encore ouvert",
+  "startDate": "2026-12-01",
+  "endDate": "2026-12-03",
+  "startInscriptionDate": "2026-10-01",
+  "endInscriptionDate": "2026-11-30",
+  "maxTeams": 4,
+  "state": "IN_PREPARATION"
+}
+
+> {%
+client.global.set("closedTournamentId", response.body.id);
+%}
+
+### POST /tournaments/{tournamentId}/registrations — Register a team
+
+### [KO 403] Register — unauthenticated visitor
+POST {{baseUrl}}/tournaments/{{openTournamentId}}/registrations
+
+### [KO 400] Register — user has no team
+POST {{baseUrl}}/tournaments/{{openTournamentId}}/registrations
+Authorization: {{memberWithoutATeamToken}}
+
+### [KO 400] Register — Rogue is a member of TEAM_ALPHA but not its manager
+POST {{baseUrl}}/tournaments/{{openTournamentId}}/registrations
+Authorization: {{memberWithATeamToken}}
+
+### [KO 404] Register — tournament not found
+POST {{baseUrl}}/tournaments/999999/registrations
+Authorization: {{managerToken}}
+
+### [KO 400] Register — tournament is not open (IN_PREPARATION)
+POST {{baseUrl}}/tournaments/{{closedTournamentId}}/registrations
+Authorization: {{managerToken}}
+
+### [KO 400] Register — TEAM_ALPHA has only 3 members (minimum 4 required)
+## Run BEFORE the SETUP steps that add memberWithoutATeam2 to TEAM_ALPHA
+POST {{baseUrl}}/tournaments/{{openTournamentId}}/registrations
+Authorization: {{managerToken}}
+
+## SETUP — add 4th member to TEAM_ALPHA before the [OK 201] test
+### [SETUP] memberWithoutATeam2 joins TEAM_ALPHA
+POST {{baseUrl}}/teams/memberships/1/membership
+Authorization: {{memberWithoutATeam2}}
+
+### [SETUP] Lynx accepts the join request (membership id depends on db state — adjust if needed)
+PATCH {{baseUrl}}/teams/memberships/3/accept
+Authorization: {{managerToken}}
+
+### [OK 201] Register — Lynx (manager of TEAM_ALPHA, 4 members) registers
+## After this test: TEAM_ALPHA is registered to Spring Cup
+POST {{baseUrl}}/tournaments/{{openTournamentId}}/registrations
+Authorization: {{managerToken}}
+
+### [KO 400] Register — Lynx tries to register TEAM_ALPHA again (already registered)
+POST {{baseUrl}}/tournaments/{{openTournamentId}}/registrations
+Authorization: {{managerToken}}
+
+## GET /tournaments/{tournamentId}/registrations — List registered teams
+
+### [OK 200] Get registrations — unauthenticated visitor sees TEAM_ALPHA registered
+GET {{baseUrl}}/tournaments/{{openTournamentId}}/registrations
+Accept: application/json
+
+### [OK 200] Get registrations — authenticated user
+GET {{baseUrl}}/tournaments/{{openTournamentId}}/registrations
+Accept: application/json
+Authorization: {{memberWithATeamToken}}
+
+### [OK 200] Get registrations of closed tournament — empty list
+GET {{baseUrl}}/tournaments/{{closedTournamentId}}/registrations
+Accept: application/json
+
+### [KO 404] Get registrations — tournament not found
+GET {{baseUrl}}/tournaments/999999/registrations
+Accept: application/json
+
+## GET /tournaments — registrationsCount reflects registered teams
+
+### [OK 200] List tournaments — registrationsCount for Spring Cup should be 1
+GET {{baseUrl}}/tournaments
+Accept: application/json
+
+## GET /teams/{teamId}/registrations — List tournaments a team is registered for
+
+### [OK 200] Get team activity — TEAM_ALPHA is registered to Spring Cup
+GET {{baseUrl}}/teams/1/registrations
+Accept: application/json
+
+### [OK 200] Get team activity — empty list for a team with no registrations
+GET {{baseUrl}}/teams/2/registrations
+Accept: application/json
+
+### [KO 404] Get team activity — team not found
+GET {{baseUrl}}/teams/999999/registrations
+Accept: application/json

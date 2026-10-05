@@ -1,0 +1,23 @@
+@baseUrl = http://localhost:3000
+
+### Login user normal
+# @name loginUser
+POST {{baseUrl}}/auths/login
+Content-Type: application/json
+
+{
+  "email": "lea@mail.com",
+  "password": "password"
+}
+
+> {%
+    client.global.set("userToken", response.body.token);
+%}
+
+### Get member activity - user exists
+GET {{baseUrl}}/users/1/member-activity
+Authorization: {{userToken}}
+
+### Get member activity - user not found → expect 404
+GET {{baseUrl}}/users/99999/member-activity
+Authorization: {{userToken}}

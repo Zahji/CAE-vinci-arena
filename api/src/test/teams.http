@@ -1,0 +1,151 @@
+## Tests for all TeamController endpoints
+## adminToken=admin | managerToken=Lynx (manager TEAM_ALPHA) | memberWithATeamToken=Rogue (member TEAM_ALPHA)
+## memberWithoutATeamToken=user without team (becomes manager of Team Test) | memberWithoutATeam2=another user without team
+## lastMemberInTeamToken=Pulse (member TEAM_ALPHA)
+
+## GET /teams
+### [OK 200] List all teams — member with a team (emails null)
+GET {{baseUrl}}/teams
+Accept: application/json
+Authorization: {{memberWithATeamToken}}
+
+### [OK 200] List all teams — unauthenticated visitor (emails null)
+GET {{baseUrl}}/teams
+Accept: application/json
+
+## GET /teams/{teamId}
+### [OK 200] Get TEAM_ALPHA — unauthenticated visitor (email null)
+GET {{baseUrl}}/teams/1
+Accept: application/json
+
+### [OK 200] Get TEAM_ALPHA — simple member (email null)
+GET {{baseUrl}}/teams/1
+Accept: application/json
+Authorization: {{memberWithATeamToken}}
+
+### [OK 200] Get TEAM_ALPHA — manager (email visible)
+GET {{baseUrl}}/teams/1
+Accept: application/json
+Authorization: {{managerToken}}
+
+### [OK 200] Get TEAM_ALPHA — admin (email visible)
+GET {{baseUrl}}/teams/1
+Accept: application/json
+Authorization: {{adminToken}}
+
+### [KO 404] Get team with non-existent id
+GET {{baseUrl}}/teams/999999
+Accept: application/json
+
+## POST /teams
+### [KO 403] Create team — unauthenticated visitor
+POST {{baseUrl}}/teams
+Content-Type: application/json
+
+{
+  "name": "Team"
+}
+
+### [OK 201] Create team — member without team (becomes manager of Team Test)
+## After this test: memberWithoutATeamToken is manager of Team Test
+POST {{baseUrl}}/teams
+Content-Type: application/json
+Authorization: {{memberWithoutATeamToken}}
+
+{
+  "name": "Team Test"
+}
+
+### [KO 403] Create team — member already in a team
+POST {{baseUrl}}/teams
+Content-Type: application/json
+Authorization: {{memberWithATeamToken}}
+
+{
+  "name": "Team Impossible"
+}
+
+### [KO 403] Create team — manager already in a team
+POST {{baseUrl}}/teams
+Content-Type: application/json
+Authorization: {{managerToken}}
+
+{
+  "name": "Second Team"
+}
+
+### [KO 403] Create team — name already exists (case-insensitive)
+POST {{baseUrl}}/teams
+Content-Type: application/json
+Authorization: {{memberWithoutATeam2}}
+
+{
+  "name": "team_alpha"
+}
+
+### [KO 400] Create team — empty name (@NotBlank)
+POST {{baseUrl}}/teams
+Content-Type: application/json
+Authorization: {{memberWithoutATeam2}}
+
+{
+  "name": ""
+}
+
+### [KO 400] Designate — manager designates themselves (id=1)
+PATCH {{baseUrl}}/teams/1/second-manager/1
+Authorization: {{managerToken}}
+
+### [KO 400] Designate — non-manager tries to designate
+PATCH {{baseUrl}}/teams/1/second-manager/2
+Authorization: {{memberWithATeamToken}}
+
+### [KO 400] Designate — non-existent member
+PATCH {{baseUrl}}/teams/1/second-manager/999999
+Authorization: {{managerToken}}
+
+### [OK 200] Designate — Lynx designates Rogue (id=2) as co-manager
+## After this test: Rogue is co-manager of TEAM_ALPHA
+PATCH {{baseUrl}}/teams/1/second-manager/2
+Authorization: {{managerToken}}
+
+### [KO 400] Designate — co-manager already exists
+PATCH {{baseUrl}}/teams/1/second-manager/8
+Authorization: {{managerToken}}
+
+## PATCH /teams/{teamId}/manager/renounce
+## Prérequis: Rogue (id=2) est co-manager de TEAM_ALPHA suite au test Designate ci-dessus
+### [KO 400] Renounce — utilisateur non-manager de l'équipe essaie de céder le rôle
+## memberWithoutATeamToken n'est pas manager de TEAM_ALPHA (il est manager de Team Test)
+PATCH {{baseUrl}}/teams/1/manager/renounce
+Authorization: {{memberWithoutATeamToken}}
+
+### [OK 200] Renounce — Lynx (manager principal) cède le rôle à Rogue (co-manager)
+## Après ce test: Rogue est manager principal, il n'y a plus de co-manager
+PATCH {{baseUrl}}/teams/1/manager/renounce
+Authorization: {{managerToken}}
+
+## PATCH /teams/{teamId}/leave
+### [OK 204] Leave — simple member (Pulse leaves TEAM_ALPHA)
+PATCH {{baseUrl}}/teams/1/leave
+Authorization: {{lastMemberInTeamToken}}
+
+### [OK 204] Leave — manager with co-manager (Lynx leaves, Rogue becomes manager)
+PATCH {{baseUrl}}/teams/1/leave
+Authorization: {{managerToken}}
+
+### [KO 400] Leave — user not in the team
+## memberWithoutATeamToken is in Team Test (id=3), not in TEAM_ALPHA (id=1)
+PATCH {{baseUrl}}/teams/1/leave
+Authorization: {{memberWithoutATeamToken}}
+
+### [OK 204] Leave — manager alone in their team should be able to leave
+## Expected behavior: 204 (team becomes inactive)
+PATCH {{baseUrl}}/teams/3/leave
+Authorization: {{memberWithoutATeamToken}}
+
+### [KO 400] Leave — non-existent team
+PATCH {{baseUrl}}/teams/999999/leave
+Authorization: {{adminToken}}
+
+

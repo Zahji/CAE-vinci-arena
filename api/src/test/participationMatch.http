@@ -1,0 +1,173 @@
+@baseUrl = http://localhost:3000
+@tournamentId = 1
+@matchId = 1
+@teamId = 30
+
+
+# @name loginAdmin
+POST {{baseUrl}}/auths/login
+Content-Type: application/json
+
+{
+  "email": "tibo@mail.com",
+  "password": "password"
+}
+
+> {%
+  client.global.set("token", response.body.token);
+%}
+
+### Login as non-admin/non-manager → sets {{nonAdminToken}}
+# @name loginNonAdmin
+POST {{baseUrl}}/auths/login
+Content-Type: application/json
+
+{
+  "email": "lisa@mail.com",
+  "password": "password"
+}
+
+> {%
+  client.global.set("nonAdminToken", response.body.token);
+%}
+
+
+### Login as team manager (manager or secondManager of team 10) → sets {{managerToken}}
+# @name loginManager
+POST {{baseUrl}}/auths/login
+Content-Type: application/json
+
+{
+  "email": "tiago.t1.m1@mail.com",
+  "password": "password"
+}
+
+> {%
+  client.global.set("managerToken", response.body.token);
+%}
+
+
+
+### Get all participations for a match → expect 200
+GET {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations
+Authorization: {{token}}
+
+### Get single participation for a specific team → expect 200
+GET {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}
+Authorization: {{token}}
+
+### Get participation — team not in this match → expect 404
+GET {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/99999
+Authorization: {{token}}
+
+### Create participation — success → expect 201
+POST {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations
+Content-Type: application/json
+Authorization: {{token}}
+
+{
+  "teamId": {{teamId}}
+}
+
+### Create participation — team already registered → expect 400
+POST {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations
+Content-Type: application/json
+Authorization: {{token}}
+
+{
+  "teamId": {{teamId}}
+}
+
+### Create participation — invalid teamId → expect 400
+POST {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations
+Content-Type: application/json
+Authorization: {{token}}
+
+{
+  "teamId": 99999
+}
+
+### Create participation — non-admin caller → expect 403
+POST {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations
+Content-Type: application/json
+Authorization: {{nonAdminToken}}
+
+{
+  "teamId": {{teamId}}
+}
+
+
+### Update score — success → expect 200
+PATCH {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/score?score=15
+Authorization: {{token}}
+
+### Update score — match is ENDED → expect 400
+PATCH {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/score?score=15
+Authorization: {{token}}
+
+### Update score — participation not found → expect 400
+PATCH {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/99999/score?score=15
+Authorization: {{token}}
+
+### Update score — non-admin caller → expect 403
+PATCH {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/score?score=15
+Authorization: {{nonAdminToken}}
+
+### Contest score — success (team manager within 2h) → expect 200
+PATCH {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/contest?reason=Score+was+entered+incorrectly
+Authorization: {{managerToken}}
+
+### Contest score — already contested (motifRefuse already set) → expect 400
+PATCH {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/contest?reason=Trying+again
+Authorization: {{managerToken}}
+
+### Contest score — match not ENDED → expect 400
+PATCH {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/contest?reason=Match+still+ongoing
+Authorization: {{managerToken}}
+
+### Contest score — score is null → expect 400
+PATCH {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/contest?reason=No+score+yet
+Authorization: {{managerToken}}
+
+### Contest score — contest window expired (> 2h after scoreUpdatedAt) → expect 400
+PATCH {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/contest?reason=Too+late
+Authorization: {{managerToken}}
+
+### Contest score — blank reason → expect 400
+PATCH {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/contest?reason=
+Authorization: {{managerToken}}
+
+### Contest score — caller is not team manager or secondManager → expect 403
+PATCH {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/contest?reason=Not+my+team
+Authorization: {{nonAdminToken}}
+
+### Contest score — unauthenticated → expect 401
+PATCH {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/contest?reason=No+auth
+
+
+
+
+### Declare forfeit — success (match in PLANIFIED state) → expect 200
+PATCH {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/forfeit?forfeit=true
+Authorization: {{managerToken}}
+
+### Undo forfeit — set back to false → expect 200
+PATCH {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/forfeit?forfeit=false
+Authorization: {{managerToken}}
+
+### Declare forfeit — match not PLANIFIED → expect 404
+### (service returns Optional.empty() → controller throws NOT_FOUND)
+PATCH {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/forfeit?forfeit=true
+Authorization: {{managerToken}}
+
+### Declare forfeit — participation not found → expect 404
+PATCH {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/99999/forfeit?forfeit=true
+Authorization: {{managerToken}}
+
+### Declare forfeit — caller is not team manager or secondManager → expect 403
+PATCH {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/forfeit?forfeit=true
+Authorization: {{nonAdminToken}}
+
+### Declare forfeit — unauthenticated → expect 401
+PATCH {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/forfeit?forfeit=true
+

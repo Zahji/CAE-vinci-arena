@@ -1,0 +1,221 @@
+@baseUrl = http://localhost:3000
+@tournamentId = 1
+@adminId = 36
+@matchId = 4
+@teamId = 30
+
+
+### Login as admin → sets {{token}}
+# @name loginAdmin
+POST {{baseUrl}}/auths/login
+Content-Type: application/json
+
+{
+  "email": "tibo@mail.com",
+  "password": "password"
+}
+
+> {%
+  client.global.set("token", response.body.token);
+%}
+
+### Login as non-admin → sets {{nonAdminToken}}
+# @name loginNonAdmin
+POST {{baseUrl}}/auths/login
+Content-Type: application/json
+
+{
+  "email": "lisa@mail.com",
+  "password": "password"
+}
+
+> {%
+  client.global.set("nonAdminToken", response.body.token);
+%}
+
+
+
+### Get all matches for a tournament → expect 200
+GET {{baseUrl}}/tournaments/{{tournamentId}}/matches
+Authorization: {{token}}
+
+### Get a single match by ID → expect 200
+GET {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}
+Authorization: {{token}}
+
+### Match not found → expect 404
+GET {{baseUrl}}/tournaments/{{tournamentId}}/matches/99999
+Authorization: {{token}}
+
+### Match belongs to different tournament → expect 404
+GET {{baseUrl}}/tournaments/6/matches/1
+Authorization: {{token}}
+
+
+### Create match — success → expect 201
+POST {{baseUrl}}/tournaments/{{tournamentId}}/matches
+Content-Type: application/json
+Authorization: {{token}}
+
+{
+  "startTime": "2026-05-01T15:00:00",
+  "round": 1,
+  "state": "PLANIFIED",
+  "adminId": {{adminId}}
+}
+
+### Create match — adminId is not an admin user → expect 400
+POST {{baseUrl}}/tournaments/{{tournamentId}}/matches
+Content-Type: application/json
+Authorization: {{token}}
+
+{
+  "startTime": "2026-05-01T15:00:00",
+  "round": 1,
+  "state": "PLANIFIED",
+  "adminId": 99999
+}
+
+### Create match — non-admin caller → expect 403
+POST {{baseUrl}}/tournaments/{{tournamentId}}/matches
+Content-Type: application/json
+Authorization: {{nonAdminToken}}
+
+{
+  "startTime": "2026-05-01T15:00:00",
+  "round": 1,
+  "state": "PLANIFIED",
+  "adminId": {{adminId}}
+}
+
+### Create match — invalid DTO (missing startTime) → expect 400
+POST {{baseUrl}}/tournaments/{{tournamentId}}/matches
+Content-Type: application/json
+Authorization: {{token}}
+
+{
+  "round": 1,
+  "state": "PLANIFIED",
+  "adminId": {{adminId}}
+}
+
+
+
+
+### PLANIFIED → ONGOING (valid) → expect 200
+PATCH {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/state?newState=ONGOING
+Authorization: {{token}}
+
+### ONGOING → ENDED (valid) → expect 200
+PATCH {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/state?newState=ENDED
+Authorization: {{token}}
+
+### CONTESTED → ENDED (valid — admin resolves contest) → expect 200
+PATCH {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/state?newState=ENDED
+Authorization: {{token}}
+
+### ENDED → CONTESTED (valid) → expect 200
+PATCH {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/state?newState=CONTESTED
+Authorization: {{token}}
+
+### PLANIFIED → ENDED (invalid — must go through ONGOING) → expect 400
+PATCH {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/state?newState=ENDED
+Authorization: {{token}}
+
+### PLANIFIED → CONTESTED (invalid) → expect 400
+PATCH {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/state?newState=CONTESTED
+Authorization: {{token}}
+
+### ONGOING → CONTESTED (invalid — use ParticipationMatchService.contestScore) → expect 400
+PATCH {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/state?newState=CONTESTED
+Authorization: {{token}}
+
+### ONGOING → PLANIFIED (invalid — no backward transitions) → expect 400
+PATCH {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/state?newState=PLANIFIED
+Authorization: {{token}}
+
+### CONTESTED → ONGOING (invalid) → expect 400
+PATCH {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/state?newState=ONGOING
+Authorization: {{token}}
+
+### ENDED → ONGOING (invalid) → expect 400
+PATCH {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/state?newState=ONGOING
+Authorization: {{token}}
+
+### ENDED → PLANIFIED (invalid) → expect 400
+PATCH {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/state?newState=PLANIFIED
+Authorization: {{token}}
+
+### Match not found → expect 404
+PATCH {{baseUrl}}/tournaments/{{tournamentId}}/matches/99999/state?newState=ONGOING
+Authorization: {{token}}
+
+### Match belongs to different tournament → expect 404
+PATCH {{baseUrl}}/tournaments/6/matches/1/state?newState=ONGOING
+Authorization: {{token}}
+
+### Non-admin caller → expect 403
+PATCH {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/state?newState=ONGOING
+Authorization: {{nonAdminToken}}
+
+
+
+### Generate bracket — success → expect 201
+POST {{baseUrl}}/tournaments/{{tournamentId}}/matches/generate
+Content-Type: application/json
+Authorization: {{token}}
+
+{
+  "startDate": "2026-05-01T10:00:00",
+  "hoursBetweenRounds": 2
+}
+
+### Generate bracket — tournament not in PLANIFIED state → expect 409
+POST {{baseUrl}}/tournaments/{{tournamentId}}/matches/generate
+Content-Type: application/json
+Authorization: {{token}}
+
+{
+  "startDate": "2026-05-01T10:00:00",
+  "hoursBetweenRounds": 2
+}
+
+### Generate bracket — less than 2 teams registered → expect 409
+POST {{baseUrl}}/tournaments/{{tournamentId}}/matches/generate
+Content-Type: application/json
+Authorization: {{token}}
+
+{
+  "startDate": "2026-05-01T10:00:00",
+  "hoursBetweenRounds": 2
+}
+
+### Generate bracket — matches already exist → expect 409
+POST {{baseUrl}}/tournaments/{{tournamentId}}/matches/generate
+Content-Type: application/json
+Authorization: {{token}}
+
+{
+  "startDate": "2026-05-01T10:00:00",
+  "hoursBetweenRounds": 2
+}
+
+### Generate bracket — lastRoundTime exceeds tournament end date → expect 409
+POST {{baseUrl}}/tournaments/{{tournamentId}}/matches/generate
+Content-Type: application/json
+Authorization: {{token}}
+
+{
+  "startDate": "2020-01-01T10:00:00",
+  "hoursBetweenRounds": 2
+}
+
+### Generate bracket — non-admin caller → expect 403
+POST {{baseUrl}}/tournaments/{{tournamentId}}/matches/generate
+Content-Type: application/json
+Authorization: {{nonAdminToken}}
+
+{
+  "startDate": "2026-05-01T10:00:00",
+  "hoursBetweenRounds": 2
+}

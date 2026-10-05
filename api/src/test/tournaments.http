@@ -1,0 +1,277 @@
+### Login admin seedé et stockage du token
+# @name loginAdmin
+POST {{baseUrl}}/auths/login
+Content-Type: application/json
+
+{
+  "email": "ines@mail.com",
+  "password": "password"
+}
+
+> {%
+client.global.set("adminToken", response.body.token);
+%}
+
+### Login non-admin seedé et stockage du token
+# @name loginNonAdmin
+POST {{baseUrl}}/auths/login
+Content-Type: application/json
+
+{
+  "email": "lea@mail.com",
+  "password": "password"
+}
+
+> {%
+client.global.set("nonAdminToken", response.body.token);
+%}
+
+## GET /tournaments
+### [OK 200] List all tournaments — unauthenticated visitor
+GET {{baseUrl}}/tournaments
+Accept: application/json
+
+### [OK 200] List only planified tournaments — unauthenticated visitor
+GET {{baseUrl}}/tournaments?state=PLANIFIED
+Accept: application/json
+
+### [KO 403] List IN_PREPARATION tournaments without admin rights — unauthenticated visitor
+GET {{baseUrl}}/tournaments?state=IN_PREPARATION
+Accept: application/json
+
+### [KO 400] List tournaments with invalid state filter
+GET {{baseUrl}}/tournaments?state=PENDING
+Accept: application/json
+
+## POST /tournaments
+### [KO 403] Create tournament — unauthenticated visitor
+POST {{baseUrl}}/tournaments
+Content-Type: application/json
+
+{
+  "name": "Forbidden Public Cup",
+  "description": "Création sans authentification",
+  "startDate": "2026-05-20",
+  "endDate": "2026-05-22",
+  "startInscriptionDate": "2026-04-01",
+  "endInscriptionDate": "2026-04-30",
+  "maxTeams": 8,
+  "state": "IN_PREPARATION"
+}
+
+### [KO 403] Create tournament — authenticated non-admin
+POST {{baseUrl}}/tournaments
+Authorization: {{nonAdminToken}}
+Content-Type: application/json
+
+{
+  "name": "Forbidden Member Cup",
+  "description": "Création par un non-admin",
+  "startDate": "2026-06-10",
+  "endDate": "2026-06-12",
+  "startInscriptionDate": "2026-05-01",
+  "endInscriptionDate": "2026-05-31",
+  "maxTeams": 8,
+  "state": "IN_PREPARATION"
+}
+
+### [KO 400] Create tournament — champs requis absents (name manquant)
+POST {{baseUrl}}/tournaments
+Authorization: {{adminToken}}
+Content-Type: application/json
+
+{
+  "description": "Tournoi sans nom",
+  "startDate": "2026-07-10",
+  "endDate": "2026-07-12",
+  "startInscriptionDate": "2026-06-01",
+  "endInscriptionDate": "2026-06-25",
+  "maxTeams": 8
+}
+
+### [OK 201] Create tournament — admin
+# @name createTournament
+POST {{baseUrl}}/tournaments
+Authorization: {{adminToken}}
+Content-Type: application/json
+
+{
+  "id": 999,
+  "name": "Admin Masters",
+  "description": "Tournoi créé par un admin",
+  "startDate": "2026-07-10",
+  "endDate": "2026-07-12",
+  "startInscriptionDate": "2026-06-01",
+  "endInscriptionDate": "2026-06-25",
+  "maxTeams": 16
+}
+
+> {%
+client.global.set("createdTournamentId", response.body.id);
+%}
+
+### [KO 409] Create tournament — nom déjà utilisé
+POST {{baseUrl}}/tournaments
+Authorization: {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Admin Masters",
+  "description": "Tournoi en doublon",
+  "startDate": "2027-01-10",
+  "endDate": "2027-01-12",
+  "startInscriptionDate": "2026-12-01",
+  "endInscriptionDate": "2026-12-25",
+  "maxTeams": 8
+}
+
+## GET /tournaments/{id}
+### [KO 404] Get created tournament (IN_PREPARATION) — unauthenticated visitor (hidden)
+GET {{baseUrl}}/tournaments/{{createdTournamentId}}
+Accept: application/json
+
+### [KO 403] List IN_PREPARATION tournaments — authenticated non-admin
+GET {{baseUrl}}/tournaments?state=IN_PREPARATION
+Authorization: {{nonAdminToken}}
+Accept: application/json
+
+### [OK 200] List IN_PREPARATION tournaments — admin
+GET {{baseUrl}}/tournaments?state=IN_PREPARATION
+Authorization: {{adminToken}}
+Accept: application/json
+
+### [KO 404] Get created tournament (IN_PREPARATION) — authenticated non-admin (hidden)
+GET {{baseUrl}}/tournaments/{{createdTournamentId}}
+Authorization: {{nonAdminToken}}
+Accept: application/json
+
+### [OK 200] Get created tournament (IN_PREPARATION) — admin
+GET {{baseUrl}}/tournaments/{{createdTournamentId}}
+Authorization: {{adminToken}}
+Accept: application/json
+
+### [KO 404] Get tournament with non-existent id
+GET {{baseUrl}}/tournaments/999999
+Accept: application/json
+
+## PUT /tournaments/{id}
+### [KO 403] Update tournament — unauthenticated visitor
+PUT {{baseUrl}}/tournaments/{{createdTournamentId}}
+Content-Type: application/json
+
+{
+  "name": "Public Update Forbidden",
+  "description": "Mise à jour sans authentification",
+  "startDate": "2026-08-01",
+  "endDate": "2026-08-03",
+  "startInscriptionDate": "2026-07-01",
+  "endInscriptionDate": "2026-07-20",
+  "maxTeams": 12,
+  "state": "PLANIFIED"
+}
+
+### [KO 403] Update tournament — authenticated non-admin
+PUT {{baseUrl}}/tournaments/{{createdTournamentId}}
+Authorization: {{nonAdminToken}}
+Content-Type: application/json
+
+{
+  "name": "Member Update Forbidden",
+  "description": "Mise à jour par un non-admin",
+  "startDate": "2026-08-01",
+  "endDate": "2026-08-03",
+  "startInscriptionDate": "2026-07-01",
+  "endInscriptionDate": "2026-07-20",
+  "maxTeams": 12,
+  "state": "PLANIFIED"
+}
+
+### [OK 200] Update tournament — admin
+PUT {{baseUrl}}/tournaments/{{createdTournamentId}}
+Authorization: {{adminToken}}
+Content-Type: application/json
+
+{
+  "id": 123456,
+  "name": "Admin Masters Updated",
+  "description": "Tournoi mis à jour par un admin",
+  "startDate": "2026-08-14",
+  "endDate": "2026-08-16",
+  "startInscriptionDate": "2026-07-01",
+  "endInscriptionDate": "2026-07-30",
+  "maxTeams": 32,
+  "state": "ONGOING"
+}
+
+### [KO 404] Update tournament with non-existent id
+PUT {{baseUrl}}/tournaments/999999
+Authorization: {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Missing Tournament",
+  "description": "Tournoi introuvable",
+  "startDate": "2026-09-01",
+  "endDate": "2026-09-03",
+  "startInscriptionDate": "2026-08-01",
+  "endInscriptionDate": "2026-08-20",
+  "maxTeams": 8,
+  "state": "PLANIFIED"
+}
+
+### DELETE /tournaments/{id}
+### [KO 403] Delete tournament — unauthenticated visitor
+DELETE {{baseUrl}}/tournaments/{{createdTournamentId}}
+
+### [KO 403] Delete tournament — authenticated non-admin
+DELETE {{baseUrl}}/tournaments/{{createdTournamentId}}
+Authorization: {{nonAdminToken}}
+
+### [KO 404] Delete tournament with non-existent id
+DELETE {{baseUrl}}/tournaments/999999
+Authorization: {{adminToken}}
+
+### [OK 204] Delete tournament — admin
+DELETE {{baseUrl}}/tournaments/{{createdTournamentId}}
+Authorization: {{adminToken}}
+
+### [OK 200] Verify registrationsCount is present in tournament list
+GET {{baseUrl}}/tournaments
+Accept: application/json
+
+## GET /tournaments?teamName=
+### [OK 200] Filter tournaments by team name — team found with registrations
+GET {{baseUrl}}/tournaments?teamName=TEAM_ALPHA
+Accept: application/json
+
+### [OK 200] Filter tournaments by team name — team name not found (empty list)
+GET {{baseUrl}}/tournaments?teamName=UNKNOWN_TEAM
+Accept: application/json
+
+### [OK 200] Filter tournaments by team name — admin sees IN_PREPARATION tournaments
+GET {{baseUrl}}/tournaments?teamName=TEAM_ALPHA
+Authorization: {{adminToken}}
+Accept: application/json
+
+### [OK 200] Filter tournaments by team name — non-admin does not see IN_PREPARATION
+GET {{baseUrl}}/tournaments?teamName=TEAM_ALPHA
+Authorization: {{memberWithoutATeamToken}}
+Accept: application/json
+
+## GET /tournaments?playerTag=
+### [OK 200] Filter tournaments by player tag — player found in a registered team
+GET {{baseUrl}}/tournaments?playerTag=Lynx
+Accept: application/json
+
+### [OK 200] Filter tournaments by player tag — tag not found (empty list)
+GET {{baseUrl}}/tournaments?playerTag=UnknownTag
+Accept: application/json
+
+### [OK 200] Filter tournaments by player tag — admin sees IN_PREPARATION tournaments
+GET {{baseUrl}}/tournaments?playerTag=Lynx
+Authorization: {{adminToken}}
+Accept: application/json
+
+### [OK 200] Filter tournaments by player tag — player without a team (empty list)
+GET {{baseUrl}}/tournaments?playerTag=NoTeamPlayer
+Accept: application/json

@@ -1,0 +1,136 @@
+### Get my profile
+GET {{baseUrl}}/users/me
+Authorization: {{token}}
+
+### [KO] GET /users/me sans token
+GET {{baseUrl}}/users/me
+
+### Get my unavailabilities
+GET {{baseUrl}}/users/me/unavailabilities
+Authorization: {{token}}
+
+### [KO] GET /users/me/unavailabilities sans token
+GET {{baseUrl}}/users/me/unavailabilities
+
+### Add an unavailability
+POST {{baseUrl}}/users/me/unavailabilities
+Content-Type: application/json
+Authorization: {{token}}
+
+{
+  "startDate": "2026-03-10",
+  "endDate": "2026-03-15"
+}
+
+### Try to add an unavailability without token (should fail)
+POST {{baseUrl}}/users/me/unavailabilities
+Content-Type: application/json
+
+{
+  "startDate": "2026-03-10",
+  "endDate": "2026-03-15"
+}
+
+### [OK 200] PATCH /users/me/speciality — spécialité valide
+PATCH {{baseUrl}}/users/me/speciality
+Content-Type: application/json
+Authorization: {{token}}
+
+{
+  "specialityName": "Executeur"
+}
+
+### [KO] PATCH /users/me/speciality sans token
+PATCH {{baseUrl}}/users/me/speciality
+Content-Type: application/json
+
+{
+  "specialityName": "Executeur"
+}
+
+### [KO] PATCH /users/me/speciality — spécialité inconnue
+PATCH {{baseUrl}}/users/me/speciality
+Content-Type: application/json
+Authorization: {{token}}
+
+{
+  "specialityName": "SpecialiteInexistante"
+}
+
+### [OK 200] PATCH /users/me/profile-picture — URL valide (depuis la liste /profile-pictures)
+PATCH {{baseUrl}}/users/me/profile-picture
+Content-Type: application/json
+Authorization: {{token}}
+
+{
+  "profilePictureUrl": "https://api.dicebear.com/7.x/bottts/svg?seed=banana"
+}
+
+### [KO] PATCH /users/me/profile-picture sans token
+PATCH {{baseUrl}}/users/me/profile-picture
+Content-Type: application/json
+
+{
+  "profilePictureUrl": "https://api.dicebear.com/7.x/bottts/svg?seed=banana"
+}
+
+### [KO] PATCH /users/me/profile-picture — URL inconnue
+PATCH {{baseUrl}}/users/me/profile-picture
+Content-Type: application/json
+Authorization: {{token}}
+
+{
+  "profilePictureUrl": "https://url-inconnue.com/image.svg"
+}
+
+### Update password
+PATCH {{baseUrl}}/users/me/password
+Content-Type: application/json
+Authorization: {{token}}
+
+{
+  "oldPassword": "zahratest",
+  "newPassword": "zahrateste"
+}
+
+### Try to update password with wrong old password (should fail)
+PATCH {{baseUrl}}/users/me/password
+Content-Type: application/json
+Authorization: {{token}}
+
+{
+  "oldPassword": "wrongpassword",
+  "newPassword": "newpassword123"
+}
+
+### Get all users (public, no token)
+GET {{baseUrl}}/users
+
+### Get all users (with token, should also work)
+GET {{baseUrl}}/users
+Authorization: {{token}}
+
+### Get user by id (public, no token)
+GET {{baseUrl}}/users/1
+
+### Get user by id (with token, should also work)
+GET {{baseUrl}}/users/1
+Authorization: {{token}}
+
+### Get user by id not found (should fail 404)
+GET {{baseUrl}}/users/99999
+
+### [OK 204] PATCH /users/{id}/ban — admin banne un utilisateur (remplacer {id} par un ID réel non-admin)
+PATCH {{baseUrl}}/users/2/ban
+Authorization: {{adminToken}}
+
+### [KO 401] PATCH /users/{id}/ban sans token
+PATCH {{baseUrl}}/users/2/ban
+
+### [KO 403] PATCH /users/{id}/ban — utilisateur non-admin
+PATCH {{baseUrl}}/users/2/ban
+Authorization: {{token}}
+
+### [KO 404] PATCH /users/{id}/ban — utilisateur inexistant
+PATCH {{baseUrl}}/users/99999/ban
+Authorization: {{adminToken}}

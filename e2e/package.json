@@ -1,0 +1,16 @@
+{
+  "name": "cae-e2e",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@faker-js/faker": "^9.8.0",
+    "@playwright/test": "^1.54.1",
+    "@types/node": "^25.5.0",
+    "typescript": "^5.8.3"
+  }
+}

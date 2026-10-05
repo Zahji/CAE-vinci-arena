@@ -1,0 +1,240 @@
+## SelectionMatchController tests
+## Tournament 6 = Vinci Easter Cup 2026 (PLANIFIED)
+## TEAM_IOTA (id=3): manager=lisa(Storm), second=noa(Flash), members=tim(Titi)+zoe(Vector)
+## Outsider: (Rogue, TEAM_ALPHA) — not in TEAM_IOTA, not admin
+## Admin: (Pulse)
+
+@tournamentId = 6
+@teamId = 3
+
+## SETUP — Login
+
+### Login as admin (Pulse / ines)
+POST {{baseUrl}}/auths/login
+Content-Type: application/json
+
+{
+  "email": "ines@mail.com",
+  "password": "password"
+}
+
+### Login as manager of TEAM_IOTA (Storm / lisa)
+POST {{baseUrl}}/auths/login
+Content-Type: application/json
+
+{
+  "email": "lisa@mail.com",
+  "password": "password"
+}
+
+### Login as second manager of TEAM_IOTA (Flash / noa)
+POST {{baseUrl}}/auths/login
+Content-Type: application/json
+
+{
+  "email": "noa@mail.com",
+  "password": "password"
+}
+
+### Login as simple member of TEAM_IOTA (Titi / tim)
+POST {{baseUrl}}/auths/login
+Content-Type: application/json
+
+{
+  "email": "tim@mail.com",
+  "password": "password"
+}
+
+### Login as outsider — not in TEAM_IOTA, not admin (Rogue / tom)
+POST {{baseUrl}}/auths/login
+Content-Type: application/json
+
+{
+  "email": "tom@mail.com",
+  "password": "password"
+}
+
+### SETUP — Create a PLANIFIED match with future startTime for tournament 6 (as admin)
+## Copy the returned matchId into matchId below
+
+### [SETUP] Create PLANIFIED match for tournament 6
+# @name createMatch
+POST {{baseUrl}}/tournaments/{{tournamentId}}/matches
+Content-Type: application/json
+Authorization: {{adminToken}}
+
+{
+  "startTime": "2026-06-01T15:00:00",
+  "round": 1,
+  "state": "PLANIFIED",
+  "adminId": 3
+}
+
+> {%
+client.global.set("matchId", response.body.matchId);
+%}
+
+
+### [SETUP] Add participation for TEAM_IOTA in the match
+POST {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations
+Content-Type: application/json
+Authorization: {{adminToken}}
+
+{
+  "teamId": {{teamId}},
+  "statusSelection": 0
+}
+
+
+### [OK 200] Get selections — admin always sees them (empty list initially)
+GET {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/selections
+Authorization: {{adminToken}}
+
+### [OK 200] Get selections — manager of TEAM_IOTA sees them
+GET {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/selections
+Authorization: {{managerToken}}
+
+### [OK 200] Get selections — simple member of TEAM_IOTA sees them (tim)
+GET {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/selections
+Authorization: {{memberToken}}
+
+### [KO 403] Get selections — outsider cannot see (match not ENDED with score)
+GET {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/selections
+Authorization: {{outsiderToken}}
+
+### [KO 401] Get selections — unauthenticated
+GET {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/selections
+
+## ── POST selections ──────────────────────────────────────────────────────────
+
+### [OK 201] Add selection — manager (lisa) selects tim (id=7)
+POST {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/selections
+Content-Type: application/json
+Authorization: {{managerToken}}
+
+{
+  "memberId": 7
+}
+
+### [OK 201] Add selection — second manager (noa) selects zoe (id=8)
+POST {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/selections
+Content-Type: application/json
+Authorization: {{secondToken}}
+
+{
+  "memberId": 8
+}
+
+### [OK 201] Add selection — manager selects themselves (lisa, id=5)
+POST {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/selections
+Content-Type: application/json
+Authorization: {{managerToken}}
+
+{
+  "memberId": 5
+}
+
+### [OK 201] Add selection — second manager selects themselves (noa, id=6)
+POST {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/selections
+Content-Type: application/json
+Authorization: {{secondToken}}
+
+{
+  "memberId": 6
+}
+
+### [KO 400] Add selection — missing memberId in body
+POST {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/selections
+Content-Type: application/json
+Authorization: {{managerToken}}
+
+{}
+
+### [KO 400] Add selection — tim (id=7) already selected
+POST {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/selections
+Content-Type: application/json
+Authorization: {{managerToken}}
+
+{
+  "memberId": 7
+}
+
+### [KO 400] Add selection — 5th member would exceed limit of 4
+POST {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/selections
+Content-Type: application/json
+Authorization: {{managerToken}}
+
+{
+  "memberId": 9
+}
+
+### [KO 400] Add selection — member (id=9999) does not belong to TEAM_IOTA
+POST {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/selections
+Content-Type: application/json
+Authorization: {{managerToken}}
+
+{
+  "memberId": 9999
+}
+
+### [KO 400] Add selection — caller (tim) is a simple member, not manager nor second
+POST {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/selections
+Content-Type: application/json
+Authorization: {{memberToken}}
+
+{
+  "memberId": 8
+}
+
+### [KO 400] Add selection — match does not exist (id=999999)
+POST {{baseUrl}}/tournaments/{{tournamentId}}/matches/999999/participations/{{teamId}}/selections
+Content-Type: application/json
+Authorization: {{managerToken}}
+
+{
+  "memberId": 7
+}
+
+### [KO 400] Add selection — team does not exist (id=999999)
+POST {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/999999/selections
+Content-Type: application/json
+Authorization: {{managerToken}}
+
+{
+  "memberId": 7
+}
+
+### [KO 401] Add selection — unauthenticated
+POST {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/selections
+Content-Type: application/json
+
+{
+  "memberId": 7
+}
+
+### [OK 204] Remove selection — manager removes tim (id=7)
+DELETE {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/selections/7
+Authorization: {{managerToken}}
+
+### [OK 204] Remove selection — second manager removes zoe (id=8)
+DELETE {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/selections/8
+Authorization: {{secondToken}}
+
+### [KO 404] Remove selection — tim (id=7) was already removed above
+DELETE {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/selections/7
+Authorization: {{managerToken}}
+
+### [KO 404] Remove selection — member id=9999 never existed in this selection
+DELETE {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/selections/9999
+Authorization: {{managerToken}}
+
+### [KO 404] Remove selection — caller (tim) is not manager nor second manager
+DELETE {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/selections/5
+Authorization: {{memberToken}}
+
+### [KO 404] Remove selection — match does not exist
+DELETE {{baseUrl}}/tournaments/{{tournamentId}}/matches/999999/participations/{{teamId}}/selections/5
+Authorization: {{managerToken}}
+
+### [KO 401] Remove selection — unauthenticated
+DELETE {{baseUrl}}/tournaments/{{tournamentId}}/matches/{{matchId}}/participations/{{teamId}}/selections/5

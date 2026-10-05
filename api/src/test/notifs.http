@@ -1,0 +1,78 @@
+@baseUrl = http://localhost:3000
+
+## GET /notifications/
+### [OK 200] Get all notifications — utilisateur authentifié
+GET {{baseUrl}}/notifications/
+Authorization: {{token}}
+
+### [KO 401] Get all notifications — non authentifié
+GET {{baseUrl}}/notifications/
+
+## GET /notifications/{id}
+### [OK 200] Get a single notification by ID — utilisateur authentifié
+GET {{baseUrl}}/notifications/1
+Authorization: {{token}}
+
+### [KO 401] Get notification by ID — non authentifié
+GET {{baseUrl}}/notifications/1
+
+### [KO 404] Get notification by ID — notification inexistante
+GET {{baseUrl}}/notifications/999999
+Authorization: {{token}}
+
+## POST /notifications/{id}/read
+### [OK 204] Mark a notification as read — utilisateur authentifié
+POST {{baseUrl}}/notifications/1/read
+Authorization: {{token}}
+
+### [KO 401] Mark as read — non authentifié
+POST {{baseUrl}}/notifications/1/read
+
+### [KO 404] Mark as read — notification inexistante
+POST {{baseUrl}}/notifications/999999/read
+Authorization: {{token}}
+
+## POST /notifications/
+### [OK 201] Create a notification — champs valides
+POST {{baseUrl}}/notifications/
+Content-Type: application/json
+
+{
+  "userId": 1,
+  "object": "Test notification",
+  "message": "This is a test notification message",
+  "type": "GENERAL"
+}
+
+### [KO 400] Create notification — champs requis absents (object manquant)
+POST {{baseUrl}}/notifications/
+Content-Type: application/json
+
+{
+  "userId": 1,
+  "message": "Notification sans objet",
+  "type": "GENERAL"
+}
+
+### [KO 404] Create notification — userId inexistant
+POST {{baseUrl}}/notifications/
+Content-Type: application/json
+
+{
+  "userId": 999999,
+  "object": "Notification pour inconnu",
+  "message": "Cet utilisateur n'existe pas",
+  "type": "GENERAL"
+}
+
+### [OK 201] Create a team invitation notification
+POST {{baseUrl}}/notifications/
+Content-Type: application/json
+
+{
+  "userId": 1,
+  "object": "Invitation à rejoindre une équipe",
+  "message": "Vous avez été invité à rejoindre une équipe",
+  "type": "TEAM_INVITATION",
+  "membershipId": 1
+}
